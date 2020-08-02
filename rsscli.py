@@ -20,6 +20,7 @@ import logging
 import pyperclip
 from tendo import singleton
 
+# setting the terminal width, default to 80 if it can't be set
 termwidth = 80
 try:
     termwidth = os.get_terminal_size().columns
@@ -30,6 +31,7 @@ configdir = os.path.expanduser('~/.rsscli/')
 dbfile = configdir + 'database.db'
 
 # checking the arguments
+# this also serves as the help when the tool is invoked with the -h option
 parser = argparse.ArgumentParser(description='''TODO''')
 parser.add_argument('-a','--add',help='add one or more source URLs to the reader', metavar='URL', nargs='+')
 parser.add_argument('-A','--addurl',help='bookmark and tag one or more URLs; you can use this to save URLs from external sources', metavar='URL', nargs='+')

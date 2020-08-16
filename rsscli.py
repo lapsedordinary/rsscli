@@ -51,6 +51,7 @@ parser.add_argument('-j','--adjustweight',help='adjust the weight of this source
 parser.add_argument('-l','--list',help='list all source URLs', metavar='',default='',const='xxx',nargs='?')
 parser.add_argument('-m','--max',help='maximum weight of sources to consider',default=9,metavar='weight')
 parser.add_argument('-n','--limit',help='limit the number of entries to display',default=0,metavar='number')
+parser.add_argument('-o','--shortfind',help='when used with find, do not display tags and list date in short form first', metavar='',default=0,const='xxx',nargs='?')
 parser.add_argument('-r','--renamefeed',help='rename this source', metavar=('URL','name'),nargs=2)
 parser.add_argument('-s','--saved',help='show saved (bookmarked) items', metavar='',default='',const='xxx',nargs='?')
 parser.add_argument('-S','--statistics',help='show usage statistics', metavar='',default='',const='xxx',nargs='?')
@@ -94,6 +95,8 @@ if args.reverse: sortorder = 'ASC'
 
 minweight = int(args.min)
 maxweight = int(args.max)
+
+shortfind = args.shortfind
 
 limit = int(args.limit)
 
@@ -494,9 +497,13 @@ def findtags(*tags):
         conn.commit
         for l in cur.fetchall():
             thesetags.append(l[0])
-        myprint("%s" % __bold(u['title']))
-        myprint("%s\t%s" % ( __blue(time.ctime(u['time'])) , __magenta(' '.join(thesetags)) ))
-        myprint("%s" % u['url'])
+        if shortfind:
+            myprint("%s: %s" % ( __blue(datetime.datetime.fromtimestamp(u['time']).strftime("%B %d, %Y")),__bold(u['title'])) )
+            myprint("%s" % u['url'])
+        else:
+            myprint("%s" % __bold(u['title']))
+            myprint("%s\t%s" % ( __blue(time.ctime(u['time'])) , __magenta(' '.join(thesetags)) ))
+            myprint("%s" % u['url'])
     return(1)
 
 def renamefeed(url,name):

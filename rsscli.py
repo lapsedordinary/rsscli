@@ -849,6 +849,7 @@ if (args.website):
     output = '''<html>
 <head>
 <title>RSSCLI output</title>
+<meta charset="utf-8"/>
 </head>
 <style type="text/css">
 h1 { font-size:20px; color:#101010; }

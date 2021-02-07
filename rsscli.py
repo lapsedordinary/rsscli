@@ -317,45 +317,48 @@ def updateurl(url,name,lastchecked,lastupdated):
             logging.warning("Feed for %s (%s) is possibly invalid; proceeding anyway" % (__red(name),__blue(url)))
 #            os._exit(0)
         updated = 0
-        for e in feed['entries']:
-            try:
-                # we can't be certain these arguments exist, so we need to check first
-                link = ''
-                if hasattr(e,'link'): link = e.link
-                author = ''
-                if hasattr(e,'author'): author = e.author
-                title = ''
-                if hasattr(e,'title'): title = e.title
-                title = title.replace('"','""')
-                summary = ''
-                if hasattr(e,'summary'): summary = e.summary
-                summary = summary.replace('"','""')
-                thetime = now
+        if 'entries' in feed.keys():
+            # added 2020-02-07 
+            # I only got this error when run remotely but just in case
+            for e in feed['entries']:
                 try:
-                    if hasattr(e,'created_parsed'): thetime = time.mktime(e.created_parsed)
-                except:
-                    logging.warning('Created time for %s cannot be parsed' % origurl )
-                try:
-                    if hasattr(e,'published_parsed'): thetime = time.mktime(e.published_parsed)
-                except:
-                    logging.warning('Published time for %s cannot be parsed' % origurl )
-                try:
-                    if hasattr(e,'updated_parsed'): thetime = time.mktime(e.updated_parsed)
-                except:
-                    logging.warning('Updated time for %s cannot be parsed' % origurl )
-                # we are using REPLACE here: things may have changed. It is obviously a bit slower though
-                # note that we do not remove links that have been removed from the feed, e.g. because the URL has been updated!
-                #cur.execute('INSERT INTO item (url, source, time, addtime, title, author, description, saved) VALUES ("%s", "%s", %d, %d, "%s", "%s", "%s" , %d) ON CONFLICT REPLACE INTO item ( time, addtime, title, author, description ) VALUES ( "%d" , "%d", "%s", "%s", "%s" ) WHERE url = "%s";' % (e.link , url , thetime , now , title, author, summary , 0 , thetime, now, title, author, summary, url ))
-                cur.execute('SELECT count(*) FROM item WHERE url = "%s"' % link )
-                if cur.fetchone()[0]:
-                    cur.execute('UPDATE item SET title = "%s", author = "%s", description = "%s" WHERE url = "%s"' % (title, author, summary, link ) )
-                else:
-                    cur.execute('INSERT INTO item (url, source, time, readtime, addtime, title, author, description, saved) VALUES ("%s", "%s", %d, %d, %d, "%s", "%s", "%s" , %d)' % (link , origurl , thetime , 0, now , title, author, summary , 0  ))
-#                conn.commit()
-                logging.info("%s (%s) added or updated" % (__red(title), __blue(link)))
-                updated = 1
-            except sqlite3.Error as err:
-                logging.warning("Can't add item (%s) to database: %s" % (__blue(e.link), err.args[0]))
+                    # we can't be certain these arguments exist, so we need to check first
+                    link = ''
+                    if hasattr(e,'link'): link = e.link
+                    author = ''
+                    if hasattr(e,'author'): author = e.author
+                    title = ''
+                    if hasattr(e,'title'): title = e.title
+                    title = title.replace('"','""')
+                    summary = ''
+                    if hasattr(e,'summary'): summary = e.summary
+                    summary = summary.replace('"','""')
+                    thetime = now
+                    try:
+                        if hasattr(e,'created_parsed'): thetime = time.mktime(e.created_parsed)
+                    except:
+                        logging.warning('Created time for %s cannot be parsed' % origurl )
+                    try:
+                        if hasattr(e,'published_parsed'): thetime = time.mktime(e.published_parsed)
+                    except:
+                        logging.warning('Published time for %s cannot be parsed' % origurl )
+                    try:
+                        if hasattr(e,'updated_parsed'): thetime = time.mktime(e.updated_parsed)
+                    except:
+                        logging.warning('Updated time for %s cannot be parsed' % origurl )
+                    # we are using REPLACE here: things may have changed. It is obviously a bit slower though
+                    # note that we do not remove links that have been removed from the feed, e.g. because the URL has been updated!
+                    #cur.execute('INSERT INTO item (url, source, time, addtime, title, author, description, saved) VALUES ("%s", "%s", %d, %d, "%s", "%s", "%s" , %d) ON CONFLICT REPLACE INTO item ( time, addtime, title, author, description ) VALUES ( "%d" , "%d", "%s", "%s", "%s" ) WHERE url = "%s";' % (e.link , url , thetime , now , title, author, summary , 0 , thetime, now, title, author, summary, url ))
+                    cur.execute('SELECT count(*) FROM item WHERE url = "%s"' % link )
+                    if cur.fetchone()[0]:
+                        cur.execute('UPDATE item SET title = "%s", author = "%s", description = "%s" WHERE url = "%s"' % (title, author, summary, link ) )
+                    else:
+                        cur.execute('INSERT INTO item (url, source, time, readtime, addtime, title, author, description, saved) VALUES ("%s", "%s", %d, %d, %d, "%s", "%s", "%s" , %d)' % (link , origurl , thetime , 0, now , title, author, summary , 0  ))
+    #                conn.commit()
+                    logging.info("%s (%s) added or updated" % (__red(title), __blue(link)))
+                    updated = 1
+                except sqlite3.Error as err:
+                    logging.warning("Can't add item (%s) to database: %s" % (__blue(e.link), err.args[0]))
         if updated:
             try:
                 cur.execute('UPDATE source SET lastupdated = %d WHERE url = "%s"' % ( now, origurl ) )

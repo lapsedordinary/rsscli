@@ -52,6 +52,7 @@ parser.add_argument('-l','--list',help='list all source URLs', metavar='',defaul
 parser.add_argument('-m','--max',help='maximum weight of sources to consider',default=9,metavar='weight')
 parser.add_argument('-n','--limit',help='limit the number of entries to display',default=0,metavar='number')
 parser.add_argument('-o','--shortfind',help='when used with find, do not display tags and list date in short form first', metavar='',default=0,const='xxx',nargs='?')
+parser.add_argument('-O','--orfind',help='when used with find, use OR rather than AND', metavar='',default=0,const='xxx',nargs='?')
 parser.add_argument('-r','--renamefeed',help='rename this source', metavar=('URL','name'),nargs=2)
 parser.add_argument('-s','--saved',help='show saved (bookmarked) items', metavar='',default='',const='xxx',nargs='?')
 parser.add_argument('-S','--statistics',help='show usage statistics', metavar='',default='',const='xxx',nargs='?')
@@ -63,6 +64,7 @@ parser.add_argument('-U','--unread',help='mark entry as unread', metavar='URL', 
 parser.add_argument('-v','--verbose',help='print more verbose statements', metavar='',default=1,const='xxx',nargs='?')
 parser.add_argument('-vv','--veryverbose',help='print even more verbose statements', metavar='',default=0,const='xxx',nargs='?')
 parser.add_argument('-vvv','--veryveryverbose',help='print most verbose statements', metavar='',default=0,const='xxx',nargs='?')
+parser.add_argument('-w','--website',help='create website with saved items',metavar='FILENAME',nargs='+')
 parser.add_argument('-x','--copyurl',help='copy the url at the given line number, to combine with -z', metavar='number',default=1)
 parser.add_argument('-z','--linenumber',help='print line numbers, to combine with -x', metavar='',default=0,const='xxx',nargs='?')
 args = parser.parse_args()
@@ -308,7 +310,7 @@ def updateurl(url,name,lastchecked,lastupdated):
             logging.error("Something went wrong with %s (%d)" % ( origurl , status ) )
         try:
             cur.execute('UPDATE source SET lastchecked = %d WHERE url = "%s"' % ( now, origurl ) )
-            conn.commit()
+#            conn.commit()
         except sqlite3.Error as err:
             logging.error("Can't set last checked date for %s: %s" % (__blue(url), err.args[0]))
         if( 'bozo' in feed and feed['bozo'] ):
@@ -349,7 +351,7 @@ def updateurl(url,name,lastchecked,lastupdated):
                     cur.execute('UPDATE item SET title = "%s", author = "%s", description = "%s" WHERE url = "%s"' % (title, author, summary, link ) )
                 else:
                     cur.execute('INSERT INTO item (url, source, time, readtime, addtime, title, author, description, saved) VALUES ("%s", "%s", %d, %d, %d, "%s", "%s", "%s" , %d)' % (link , origurl , thetime , 0, now , title, author, summary , 0  ))
-                conn.commit()
+#                conn.commit()
                 logging.info("%s (%s) added or updated" % (__red(title), __blue(link)))
                 updated = 1
             except sqlite3.Error as err:
@@ -362,6 +364,7 @@ def updateurl(url,name,lastchecked,lastupdated):
                 logging.warning("Can't set last updated date for %s: %s" % (__blue(url), err.args[0]))
     else:
         logging.info("Checked %s too recently" % __red(name) )
+    conn.commit()
 #
 def updateurls():
     cur.execute('SELECT * FROM source ORDER BY lastupdated ASC');
@@ -480,6 +483,47 @@ def findtags(*tags):
     foundurls = []
     for u in urls:
         if set(tags[0]).issubset(urls[u]):
+            try:
+                cur.execute('SELECT * FROM item WHERE url = "%s"' % u)
+                conn.commit
+                line = cur.fetchone()
+                foundurls.append( { 'url' : u, 'time' : line[2] , 'title' : line[5], 'description': line[7] } )
+            except:
+                logging.warning('Something went wrong. Found tags for %s but this URL is not found in items' % u)
+    sortedurls = sorted(foundurls,key=lambda x: x['time'],reverse=(False if sortorder == 'ASC' else True))
+    count = 0
+    for u in sortedurls:
+        count = count+1
+        if (limit > 0 and count > limit): break
+        thesetags = []
+        cur.execute('SELECT * FROM tag WHERE url = "%s"' % u['url'])
+        conn.commit
+        for l in cur.fetchall():
+            thesetags.append(l[0])
+        if shortfind:
+            myprint("%s: %s" % ( __blue(datetime.datetime.fromtimestamp(u['time']).strftime("%B %d, %Y")),__bold(u['title'])) )
+            myprint("%s" % u['url'])
+        else:
+            myprint("%s" % __bold(u['title']))
+            myprint("%s\t%s" % ( __blue(time.ctime(u['time'])) , __magenta(' '.join(thesetags)) ))
+            myprint("%s" % u['url'])
+    return(1)
+
+def findortags(*tags):
+    # find all the URLs mathings at least one of the tags
+    ortags = '" OR tag="'.join(list(tags[0]))
+    cur.execute('SELECT * FROM tag WHERE tag="' + ortags + '"')
+    conn.commit
+    urltags = cur.fetchall()
+    urls = {}
+    for ut in urltags:
+        t = ut[0]
+        u = ut[1]
+        if not(u in urls): urls[u] = set()
+        urls[u].add(t)
+    foundurls = []
+    for u in urls:
+#        if set(tags[0]).issubset(urls[u]):
             try:
                 cur.execute('SELECT * FROM item WHERE url = "%s"' % u)
                 conn.commit
@@ -653,6 +697,10 @@ if (args.update):
     updateurls()
     quit()
 
+if (args.find and args.orfind):
+    findortags(list(map(lambda x:x.lower(),args.find)))
+    quit()
+
 if (args.find):
     findtags(list(map(lambda x:x.lower(),args.find)))
     quit()
@@ -791,6 +839,54 @@ if (args.tempimport):
         logging.info('Added "%s" (%s) to the new database' % ( __magenta( title ) , __blue( url ) ) )
     quit()
 #### END TEMP ####
+
+if (args.website):
+    cur.execute( "SELECT * FROM item WHERE readtime = 0 AND saved = %d ORDER BY time %s" % ( saved , sortorder ) )
+    rows = cur.fetchall()
+    output = '''<html>
+<head>
+<title>RSSCLI output</title>
+</head>
+<style type="text/css">
+h1 { font-size:20px; color:#101010; }
+h1 a { color:#101010; font-decoration: none; }
+h2 { font-size:15px; color:#101010; }
+h3 { font-size:13px; color:#101010; }
+h4 { font-size:12px; color:#101010; }
+a { color:#800000; text-decoration: none; }
+a:hover { background-color:#ffffc0; }
+p.authortime { font-style: italic; font-size:10px; color:#000000; }
+p.content { font-size:12px; }
+</style>
+<body>
+'''
+    for line in rows:
+        url = line[0]
+        itemtime = line[2]
+        title = line[5]
+        author = line[6]
+        content = line[7]
+        weight = 5
+        source = line[1]
+        cur.execute( 'SELECT * FROM source WHERE url = "%s"' % source )
+        one = cur.fetchone()
+        # this is when there is a matching source. There usually is, but maybe a source has since been deleted
+        if one:
+            weight = one[4]
+            source = one[1]
+        if weight < minweight: continue
+        if weight > maxweight: continue
+        output += ( '''<h1><a href="%s" target="_blank">%s : %s</a></h1>
+<p class="authortime">%s, %s</p>
+<p class="content">%s</p>
+<hr />
+
+''' % ( url, source, title, author, time.ctime(itemtime), content ) )
+    output += '''</body>
+</html>'''
+    f = open(args.website[0],'w')
+    f.write(output)
+    quit()
 
     
 # MAIN LOOP

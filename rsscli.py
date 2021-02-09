@@ -852,6 +852,7 @@ if (args.website):
 <meta charset="utf-8"/>
 </head>
 <style type="text/css">
+hr { clear: both; }
 h1 { font-size:20px; color:#101010; }
 h1 a { color:#101010; font-decoration: none; }
 h2 { font-size:15px; color:#101010; }

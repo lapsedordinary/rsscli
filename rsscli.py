@@ -738,7 +738,7 @@ if (args.recent):
     displayrecent(num)
     quit()
 
-if (args.recentsaved):
+if (args.recentsaved and not args.website):
     num = int(args.limit)
     if num == 0: num = 10
     displayrecentsaved(num)
@@ -844,7 +844,10 @@ if (args.tempimport):
 #### END TEMP ####
 
 if (args.website):
-    cur.execute( "SELECT * FROM item WHERE readtime = 0 AND saved = %d ORDER BY time %s" % ( saved , sortorder ) )
+    if args.recentsaved:
+        cur.execute('SELECT DISTINCT item.url,item.source,item.time,item.readtime,item.addtime,item.title,item.author,item.description FROM item,tag WHERE item.url = tag.url ORDER BY item.readtime DESC LIMIT %d' % ( int(args.limit) if args.limit else 10 ) )
+    else:
+        cur.execute( "SELECT * FROM item WHERE readtime = 0 AND saved = %d ORDER BY time %s" % ( saved , sortorder ) )
     rows = cur.fetchall()
     output = '''<html>
 <head>

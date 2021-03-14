@@ -38,7 +38,7 @@ parser.add_argument('-A','--addurl',help='bookmark and tag one or more URLs; you
 parser.add_argument('--addcsv',help='add URLs to the reader from a CSV file with one URL per row and optionally the weight in the second column. This is useful when you want to import a lot of courses', metavar='file')
 parser.add_argument('-b','--blackwhite',help='don\'t use terminal colours',default=0,metavar='',const='xxx',nargs='?')
 parser.add_argument('-c','--recent',help='display items recently marked as read (default 10, but can be changed with -n)',default=0,const='xxx',nargs='?')
-parser.add_argument('-C','--recentsaved',help='display items recently saved (default 10, but can be changed with -n)',default=0,const='xxx',nargs='?')
+parser.add_argument('-C','--recentsaved',help='display items recently tagged (default 10, but can be changed with -n)',default=0,const='xxx',nargs='?')
 parser.add_argument('--checkfrequency',help='set the number of seconds before a feed is checked again (only makes sense when combined with -u)',default=900,metavar='seconds')
 parser.add_argument('--delete',help='delete source URLs from the reader', metavar='URL',default='',nargs='+')
 parser.add_argument('-e','--reverse',help='show items or sources in reverse',default=0,const='xxx',nargs='?')
@@ -330,6 +330,7 @@ def updateurl(url,name,lastchecked,lastupdated):
                     title = ''
                     if hasattr(e,'title'): title = e.title
                     title = title.replace('"','""')
+                    # next two lines are a fix because some feeds (CISA) have the URL as a link in the title...
                     summary = ''
                     if hasattr(e,'summary'): summary = e.summary
                     summary = summary.replace('"','""')
@@ -601,6 +602,8 @@ def displayrecent(number):
         url = line[0]
         source = line[1]
         title = line[5]
+        match = re.search('<a [^>]*>([^<]*)</a>',title)
+        if match: title = match.group(1)
         author = line[6]
         if author: author = ' (' + author + ')'
         itemtime = time.ctime(line[2])
@@ -629,6 +632,8 @@ def displayrecentsaved(number):
         url = line[0]
         source = line[1]
         title = line[2]
+        match = re.search('<a [^>]*>([^<]*)</a>',title)
+        if match: title = match.group(1)
         author = line[3]
         if author: author = ' (' + author + ')'
         itemtime = time.ctime(line[4])
@@ -822,6 +827,8 @@ if (args.tempimport):
         readtime = 0
         addtime = int(time.time()) # now
         title = line[2]
+        match = re.search('<a [^>]*>([^<]*)</a>',title)
+        if match: title = match.group(1)
         author = ''
         summary = ''
         saved = 0
@@ -872,6 +879,8 @@ p.content { font-size:12px; }
         url = line[0]
         itemtime = line[2]
         title = line[5]
+        match = re.search('<a [^>]*>([^<]*)</a>',title)
+        if match: title = match.group(1)
         author = line[6]
         content = line[7]
         weight = 5
@@ -906,6 +915,8 @@ for line in rows:
     url = line[0]
     itemtime = line[2]
     title = line[5]
+    match = re.search('<a [^>]*>([^<]*)</a>',title)
+    if match: title = match.group(1)
     author = line[6]
     content = line[7]
     weight = 5
@@ -942,6 +953,8 @@ while ( counter >= 0 and counter < len(entries) ):
     url = entries[counter]['url']
     itemtime = entries[counter]['itemtime']
     title = entries[counter]['title']
+    match = re.search('<a [^>]*>([^<]*)</a>',title)
+    if match: title = match.group(1)
     author = entries[counter]['author']
     if author: author = ' (' + author + ')'
     content = entries[counter]['content']

@@ -44,7 +44,7 @@ parser.add_argument('--delete',help='delete source URLs from the reader', metava
 parser.add_argument('-e','--reverse',help='show items or sources in reverse',default=0,const='xxx',nargs='?')
 parser.add_argument('-f','--find',help='find items exactly matching all tags',metavar='TAG',nargs='+')
 parser.add_argument('-F','--force',help='run even when another instance is running', metavar='',default='',const='xxx',nargs='?')
-parser.add_argument('-g','--renametag',help='rename a tag', metavar=('URL','name'),nargs=2)
+parser.add_argument('-g','--renametag',help='rename a tag', metavar=('oldtag','newtag'),nargs=2)
 parser.add_argument('--logfile',help='file to print logs to (by default logs are printed to standard output). Implies -b',default=0,metavar='',const='xxx',nargs='?')
 parser.add_argument('-i','--min',help='minimum weight of sources to consider',default=1,metavar='weight')
 parser.add_argument('-j','--adjustweight',help='adjust the weight of this source', metavar=('URL','weight'),nargs=2)

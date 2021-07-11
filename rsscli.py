@@ -947,9 +947,11 @@ for line in rows:
 
 myprint("%d entries" % len(entries))
 counter = 0
+url = ''
 while ( counter >= 0 and counter < len(entries) ):
     def printline(source,weight,title,author,itemtime):
         myprint("%s (%s): %s%s %s " % ( __red(source) , __magenta(str(weight)),__blue(__bold(title)), author , time.ctime(itemtime)))
+    prevurl = url # stores the previous URL
     url = entries[counter]['url']
     itemtime = entries[counter]['itemtime']
     title = entries[counter]['title']
@@ -1011,12 +1013,12 @@ while ( counter >= 0 and counter < len(entries) ):
         if key == 'p':
             try:
                 try:
-                    cur.execute('UPDATE item SET readtime = 0 WHERE url = "%s"' % url )
+                    cur.execute('UPDATE item SET readtime = 0 WHERE url = "%s"' % prevurl )
                     conn.commit()
                 except:
-                    logging.warning("Can't mark %s as unread" % url)
+                    logging.warning("Can't mark %s as unread" % prevurl)
             except:
-                logging.warning("Can't mark '%s' (%s) as unread" % ( title , url ) )
+                logging.warning("Can't mark '%s' (%s) as unread" % ( title , prevurl ) )
             notnext = 0
             counter = counter - 1
             continue

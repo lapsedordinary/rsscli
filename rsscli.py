@@ -709,7 +709,7 @@ if (args.find and args.orfind):
     findortags(list(map(lambda x:x.lower(),args.find)))
     quit()
 
-if (args.find):
+if (args.find and not args.website):
     findtags(list(map(lambda x:x.lower(),args.find)))
     quit()
 
@@ -853,6 +853,8 @@ if (args.tempimport):
 if (args.website):
     if args.recentsaved:
         cur.execute('SELECT DISTINCT item.url,item.source,item.time,item.readtime,item.addtime,item.title,item.author,item.description FROM item,tag WHERE item.url = tag.url ORDER BY item.readtime DESC LIMIT %d' % ( int(args.limit) if args.limit else 10 ) )
+    elif args.website:
+        cur.execute('SELECT DISTINCT item.url,item.source,item.time,item.readtime,item.addtime,item.title,item.author,item.description FROM item,tag WHERE item.url = tag.url AND tag.tag = "%s" ORDER BY item.readtime DESC LIMIT %d' % ( args.find[0], int(args.limit) if args.limit else 10 ) )
     else:
         cur.execute( "SELECT * FROM item WHERE readtime = 0 AND saved = %d ORDER BY time %s" % ( saved , sortorder ) )
     rows = cur.fetchall()

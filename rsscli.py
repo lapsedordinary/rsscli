@@ -47,6 +47,7 @@ parser.add_argument('-F','--force',help='run even when another instance is runni
 parser.add_argument('-g','--renametag',help='rename a tag', metavar=('oldtag','newtag'),nargs=2)
 parser.add_argument('--logfile',help='file to print logs to (by default logs are printed to standard output). Implies -b',default=0,metavar='',const='xxx',nargs='?')
 parser.add_argument('-i','--min',help='minimum weight of sources to consider',default=1,metavar='weight')
+parser.add_argument('--insecure',help='ignore ceritifcate valudation (experimental)',action='store_true')
 parser.add_argument('-j','--adjustweight',help='adjust the weight of this source', metavar=('URL','weight'),nargs=2)
 parser.add_argument('-l','--list',help='list all source URLs', metavar='',default='',const='xxx',nargs='?')
 parser.add_argument('-m','--max',help='maximum weight of sources to consider',default=9,metavar='weight')
@@ -969,8 +970,11 @@ while ( counter >= 0 and counter < len(entries) ):
     while (notnext):
         key = readchar.readchar().lower()
         if key == '?' or key == 'h':
-            myprint(  "\nThe following options are available:\n" + __underline(__red('b')) + "ookmark URL (and implicitly mark as read)\n" + __underline(__red('o')) + "pen in browser\n" + __underline(__red('q'))+"uit\nmark as " + __underline(__red('r')) + "ead\n" + __underline(__red('s')) + "how details\nprint " + __underline(__red('u')) + "rl\nopen in " + __underline(__red('w')) + "3m (text browser)\n" + __underline(__red('!')) + ' save to "bookmarks"\nopen 1' + __underline(__red('0')) + " entries in browser\nopen " + __underline(__red('5')) + " entries in browser\n" )
+            myprint(  "\nThe following options are available:\n" + __underline(__red('b')) + "ookmark URL (and implicitly mark as read)\n" + __underline(__red('j')) + "ust show this source\n" + __underline(__red('o')) + "pen in browser\n" + __underline(__red('q'))+"uit\nmark as " + __underline(__red('r')) + "ead\n" + __underline(__red('s')) + "how details\nprint " + __underline(__red('u')) + "rl\nopen in " + __underline(__red('w')) + "3m (text browser)\n" + __underline(__red('!')) + ' save to "bookmarks"\nopen 1' + __underline(__red('0')) + " entries in browser\nopen " + __underline(__red('5')) + " entries in browser\n" )
             continue
+        if key == 'j':
+            # just show entries from this source; something I often find helpful
+            entries = ( entries[:counter-1 ] if counter >0 else [] ) + [ x for x in entries[counter:] if x['source'] == source ]
         if key == 'b':
             if bookmark( url ):
                 try:

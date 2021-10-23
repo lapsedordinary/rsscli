@@ -975,6 +975,9 @@ while ( counter >= 0 and counter < len(entries) ):
         if key == 'j':
             # just show entries from this source; something I often find helpful
             entries = ( entries[:counter-1 ] if counter >0 else [] ) + [ x for x in entries[counter:] if x['source'] == source ]
+            myprint("The remaining %s entries are all from %s" % (__red(str(len(entries)-counter)) , __red(source)))
+            myprint("%s (%s): %s%s %s " % ( __red(source) , __magenta(str(weight)),__blue(__bold(title)), author , time.ctime(itemtime)))
+            continue
         if key == 'b':
             if bookmark( url ):
                 try:

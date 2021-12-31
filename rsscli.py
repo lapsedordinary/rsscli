@@ -105,6 +105,20 @@ shortfind = args.shortfind
 
 limit = int(args.limit)
 
+def myprint(text):
+    # this allows us to print line numbers and, if needed, copy the URL in a specific line number
+    global linenumber 
+    linenumber = linenumber + 1
+    if (args.linenumber):
+        print( str(linenumber) + '. ' + text )
+        if (int(args.copyurl) == linenumber):
+            urls = re.findall('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),~#]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', text)
+            if urls and urls[0]:
+                if urls[0][-1:] == ')': urls[0] = urls[0][:-1]
+                pyperclip.copy(urls[0])   
+    else:
+        print( text )
+
 # it may be that some RSS feeds like to pretend we're a normal browser
 feedparser.USER_AGENT = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:72.0) Gecko/20100101 Firefox/72.0"
 
@@ -164,20 +178,6 @@ def ago(num):
     minutes = int(num/60)
     seconds = num % 60
     return str(days) + 'd' + str(hours) + 'h' + str(minutes) + 'm' + str(seconds) + 's ago'
-
-def myprint(text):
-    # this allows us to print line numbers and, if needed, copy the URL in a specific line number
-    global linenumber 
-    linenumber = linenumber + 1
-    if (args.linenumber):
-        print( str(linenumber) + '. ' + text )
-        if (int(args.copyurl) == linenumber):
-            urls = re.findall('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),~#]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', text)
-            if urls and urls[0]:
-                if urls[0][-1:] == ')': urls[0] = urls[0][:-1]
-                pyperclip.copy(urls[0])   
-    else:
-        print( text )
 
 # helper script to remove HTML tags from a string
 def remove_html_tags(text):
@@ -449,7 +449,7 @@ def bookmark(url):
         backspaces = remaining - len(currenttag) + len(predict)
         if not predict: backspaces = remaining
 #        sys.stdout.write( (' ' * ( backspaces ) ) + "\r" )
-        printline =  "\r" + __bold ('Tags:')+ ( ' ... ' if len(thesetags) > 10 else ' ') + ' '.join(map(__magenta,thesetags[max(len(thesetags)-15,0):])) + ( ' ' if len(thesetags) else '' ) + __underline(__magenta(currenttag)) + predict[len(currenttag):] + ( ' ' * remaining )  + ( "\b" * backspaces )
+        printline =  "\r" + __bold ('Tags:')+ ( ' ... ' if len(thesetags) > 10 else ' ') + ' '.join(map(__magenta,thesetags[max(len(thesetags)-10,0):])) + ( ' ' if len(thesetags) else '' ) + __underline(__magenta(currenttag)) + predict[len(currenttag):] + ( ' ' * remaining )  + ( "\b" * backspaces )
         sys.stdout.write( printline )
         sys.stdout.flush()
         key = readchar.readchar().lower()
@@ -900,17 +900,29 @@ if (args.website):
 <head>
 <title>RSSCLI output</title>
 <meta charset="utf-8"/>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
 <link href="https://getbootstrap.com/docs/4.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-</head>
+<!-- <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script> -->
+<script src="https://code.jquery.com/jquery-3.2.1.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
 <style type="text/css">
 body {
   padding-top: 3.5rem;
 }
 </style>
+<script>
+var xmlhttp = new XMLHttpRequest();
+xmlhttp.onreadystatechange=function() {
+  if (xmlhttp.readyState==4 && xmlhttp.status==200) {
+    var response = xmlhttp.responseText; //if you need to do something with the returned value
+  }
+}
+</script>
+</head>
 <body>
 <main role="main">
 <div class="container">
-<div class="row">
 '''
     counter = 0
     for line in rows:
@@ -935,17 +947,19 @@ body {
             source = one[1]
         if weight < minweight: continue
         if weight > maxweight: continue
-        output += ( f'''<div class="col-md-4"><h3>{source} : {title}</h3>
-<p><i>{author}{time.ctime(itemtime)}</i></p>
+        output += f'''<div id="block{counter}" class="collapse show blog-post"><h2 class="blog-post-title">{source} : {title}</h2>
+<p class="blog-post-meta">{author}{time.ctime(itemtime)}</p>
 <p>{content}</p>
 <a class="btn btn-secondary" href="{url}" target="_blank">Read &raquo;</a>
+<button class="btn btn-success" onclick="$.get('http://lapsed.ordinary/rss/rssweb.py?url={urllib.parse.quote(url)}&action=save');" type="button" data-toggle="collapse" data-target="#block{counter}" aria-expanded="true" aria-controls="block{counter}">Save &#10071;</button>
+<button class="btn btn-danger" onclick="$.get('http://lapsed.ordinary/rss/rssweb.py?url={urllib.parse.quote(url)}&action=markread');" type="button" data-toggle="collapse" data-target="#block{counter}" aria-expanded="true" aria-controls="block{counter}">Delete &#10060;</button>
+<br/><br/>
 </div>
 
-''' )
-        if counter %  3 == 2: output += '</div>\n<hr/>\n<div class="row">'
+''' 
+#        if counter %  3 == 2: output += '</div>\n<hr/>\n<div class="row">'
         counter += 1
     output += '''</div>
-</div>
 </main>
 </body>
 </html>'''

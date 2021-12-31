@@ -55,7 +55,9 @@ parser.add_argument('-n','--limit',help='limit the number of entries to display'
 parser.add_argument('-o','--shortfind',help='when used with find, do not display tags and list date in short form first', metavar='',default=0,const='xxx',nargs='?')
 parser.add_argument('-O','--orfind',help='when used with find, use OR rather than AND', metavar='',default=0,const='xxx',nargs='?')
 parser.add_argument('-r','--renamefeed',help='rename this source', metavar=('URL','name'),nargs=2)
+parser.add_argument('--read',help='mark entry as read', metavar='URL', nargs='+')
 parser.add_argument('-s','--saved',help='show saved (bookmarked) items', metavar='',default='',const='xxx',nargs='?')
+parser.add_argument('--save',help='save entry', metavar='URL', nargs='+')
 parser.add_argument('-S','--statistics',help='show usage statistics', metavar='',default='',const='xxx',nargs='?')
 parser.add_argument('-t','--listtags',help='list all tags, can be limited by -n',default=0,metavar='',const='xxx',nargs='?')
 parser.add_argument('--tempimport',help='add URLs to the reader from a CSV file; the second optional argument is the weight', metavar='file')
@@ -446,7 +448,7 @@ def bookmark(url):
             remaining = remaining - 1 - len(currenttag)
         backspaces = remaining - len(currenttag) + len(predict)
         if not predict: backspaces = remaining
-        sys.stdout.write( ('_' * ( backspaces ) ) + "\r" )
+#        sys.stdout.write( (' ' * ( backspaces ) ) + "\r" )
         printline =  "\r" + __bold ('Tags:')+ ( ' ... ' if len(thesetags) > 10 else ' ') + ' '.join(map(__magenta,thesetags[max(len(thesetags)-15,0):])) + ( ' ' if len(thesetags) else '' ) + __underline(__magenta(currenttag)) + predict[len(currenttag):] + ( ' ' * remaining )  + ( "\b" * backspaces )
         sys.stdout.write( printline )
         sys.stdout.flush()
@@ -672,6 +674,22 @@ def markunread(url):
     except sqlite3.Error as err:
         logging.error('Failed to mark %s as unread: %s' % ( url, err ) )
 
+def markread(url):
+    try:
+        cur.execute('UPDATE item SET readtime = %d WHERE url = "%s"' % ( int(time.time()), url ) )
+        conn.commit()
+        logging.info('Marked %s as read' % url )
+    except sqlite3.Error as err:
+        logging.error('Failed to mark %s as read: %s' % ( url, err ) )
+
+def marksaved(url):
+    try:
+        cur.execute('UPDATE item SET saved = 1 WHERE url = "%s"' % url )
+        conn.commit()
+        logging.info('Marked %s as saved' % url )
+    except sqlite3.Error as err:
+        logging.error('Failed to mark %s as read: %s' % ( url, err ) )
+
 if (args.add):
     urls = args.add
     for url in urls:
@@ -817,6 +835,16 @@ if (args.addurl):
 if (args.unread):
     for url in args.unread:
         markunread(url)
+    quit()
+
+if (args.save):
+    for url in args.save:
+        marksaved(url)
+    quit()
+
+if (args.read):
+    for url in args.read:
+        markread(url)
     quit()
 
 if (args.statistics):

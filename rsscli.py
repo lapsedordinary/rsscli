@@ -177,6 +177,13 @@ def myprint(text):
     else:
         print( text )
 
+# helper script to remove HTML tags from a string
+def remove_html_tags(text):
+    """Remove html tags from a string"""
+    import re
+    clean = re.compile('<.*?>')
+    return re.sub(clean, '', text)
+
 def findfeed(site):
     # a helper function that, given an HTTP URL, returns the URLs of the RSS feeds inside it
     raw = requests.get(site).text
@@ -429,8 +436,9 @@ def bookmark(url):
                 predict = t
                 break
         # the next dozen lines or so are to print the tags and predictions as we type
-        remaining = termwidth - 6 # for Tags:
-        for t in thesetags:
+        remaining = termwidth - 6 # for Tags
+        if len(thesetags) > 10: remaining -= 4
+        for t in thesetags[max(len(thesetags)-10,0):]:
             remaining = remaining - 1 - len(t)
         if predict:
             remaining = remaining - 1 - len(predict)
@@ -438,8 +446,9 @@ def bookmark(url):
             remaining = remaining - 1 - len(currenttag)
         backspaces = remaining - len(currenttag) + len(predict)
         if not predict: backspaces = remaining
-        sys.stdout.write( ('_' * backspaces ) + "\r" )
-        sys.stdout.write( "\r" + __bold ('Tags: ')+ ' '.join(map(__magenta,thesetags)) + ( ' ' if len(thesetags) else '' ) + __underline(__magenta(currenttag)) + predict[len(currenttag):] + ( ' ' * remaining )  + ( "\b" * backspaces ) )
+        sys.stdout.write( ('_' * ( backspaces ) ) + "\r" )
+        printline =  "\r" + __bold ('Tags:')+ ( ' ... ' if len(thesetags) > 10 else ' ') + ' '.join(map(__magenta,thesetags[max(len(thesetags)-15,0):])) + ( ' ' if len(thesetags) else '' ) + __underline(__magenta(currenttag)) + predict[len(currenttag):] + ( ' ' * remaining )  + ( "\b" * backspaces )
+        sys.stdout.write( printline )
         sys.stdout.flush()
         key = readchar.readchar().lower()
 #        myprint("KEY = " + str(ord(key[:1])) )
@@ -863,21 +872,19 @@ if (args.website):
 <head>
 <title>RSSCLI output</title>
 <meta charset="utf-8"/>
+<link href="https://getbootstrap.com/docs/4.0/dist/css/bootstrap.min.css" rel="stylesheet" />
 </head>
 <style type="text/css">
-hr { clear: both; }
-h1 { font-size:20px; color:#101010; }
-h1 a { color:#101010; font-decoration: none; }
-h2 { font-size:15px; color:#101010; }
-h3 { font-size:13px; color:#101010; }
-h4 { font-size:12px; color:#101010; }
-a { color:#800000; text-decoration: none; }
-a:hover { background-color:#ffffc0; }
-p.authortime { font-style: italic; font-size:10px; color:#000000; }
-p.content { font-size:12px; }
+body {
+  padding-top: 3.5rem;
+}
 </style>
 <body>
+<main role="main">
+<div class="container">
+<div class="row">
 '''
+    counter = 0
     for line in rows:
         url = line[0]
         itemtime = line[2]
@@ -885,7 +892,11 @@ p.content { font-size:12px; }
         match = re.search('<a [^>]*>([^<]*)</a>',title)
         if match: title = match.group(1)
         author = line[6]
-        content = line[7]
+        if author: author += ', '
+        content = remove_html_tags(line[7])
+        contentsplit = content.split(' ')
+        if len(contentsplit) > 100:
+            content = ' '.join(contentsplit[:100]) + ' ...'
         weight = 5
         source = line[1]
         cur.execute( 'SELECT * FROM source WHERE url = "%s"' % source )
@@ -896,13 +907,19 @@ p.content { font-size:12px; }
             source = one[1]
         if weight < minweight: continue
         if weight > maxweight: continue
-        output += ( '''<h1><a href="%s" target="_blank">%s : %s</a></h1>
-<p class="authortime">%s, %s</p>
-<p class="content">%s</p>
-<hr />
+        output += ( f'''<div class="col-md-4"><h3>{source} : {title}</h3>
+<p><i>{author}{time.ctime(itemtime)}</i></p>
+<p>{content}</p>
+<a class="btn btn-secondary" href="{url}" target="_blank">Read &raquo;</a>
+</div>
 
-''' % ( url, source, title, author, time.ctime(itemtime), content ) )
-    output += '''</body>
+''' )
+        if counter %  3 == 2: output += '</div>\n<hr/>\n<div class="row">'
+        counter += 1
+    output += '''</div>
+</div>
+</main>
+</body>
 </html>'''
     f = open(args.website[0],'w')
     f.write(output)

@@ -56,6 +56,7 @@ parser.add_argument('-o','--shortfind',help='when used with find, do not display
 parser.add_argument('-O','--orfind',help='when used with find, use OR rather than AND', metavar='',default=0,const='xxx',nargs='?')
 parser.add_argument('-r','--renamefeed',help='rename this source', metavar=('URL','name'),nargs=2)
 parser.add_argument('--read',help='mark entry as read', metavar='URL', nargs='+')
+parser.add_argument('-R','--readonly',help='open database in read-only mode (will cause errors when trying to write!)',action='store_true')
 parser.add_argument('-s','--saved',help='show saved (bookmarked) items', metavar='',default='',const='xxx',nargs='?')
 parser.add_argument('--save',help='save entry', metavar='URL', nargs='+')
 parser.add_argument('-S','--statistics',help='show usage statistics', metavar='',default='',const='xxx',nargs='?')
@@ -72,6 +73,8 @@ parser.add_argument('-x','--copyurl',help='copy the url at the given line number
 parser.add_argument('-z','--linenumber',help='print line numbers, to combine with -x', metavar='',default=0,const='xxx',nargs='?')
 args = parser.parse_args()
 
+dburl = f'file:{dbfile}{"?mode=ro" if args.readonly else ""}'
+
 linenumber = 0
 
 # setting the loglevel
@@ -82,7 +85,7 @@ if args.veryveryverbose: loglevel=logging.DEBUG
 logging.basicConfig(level=loglevel,filename=args.logfile,format='%(asctime)s %(levelname)s: %(message)s')
 
 # We don't want to run multiple instances of the program in parallel, because this causes database lock issues
-if not args.force:
+if not args.force and not args.readonly:
     try:
         me = singleton.SingleInstance()
     except:
@@ -131,7 +134,7 @@ if not(os.path.isfile(dbfile)):
         quit()
     if not(os.path.isdir(configdir)):
         os.mkdir(configdir)
-    conn = sqlite3.connect(dbfile)
+    conn = sqlite3.connect(dburl,uri=True)
     cur = conn.cursor()
     cur.execute('''CREATE TABLE source (url VARCHAR(1024) PRIMARY KEY NOT NULL, name VARCHAR(512), lastchecked INT DEFAULT 0, lastupdated INT DEFAULT 0, weight INT DEFAULT 5);''')
     cur.execute('''CREATE TABLE item (url VARCHAR(1024) PRIMARY KEY NOT NULL, source VARCHAR(1024) NOT NULL, time INT DEFAULT 0, readtime INT DEFAULT 0, addtime INT DEFAULT 0, title VARCHAR(300), author VARCHAR(256), description VARCHAR(4096) DEFAULT '', saved INT DEFAULT 0);''')
@@ -140,7 +143,7 @@ if not(os.path.isfile(dbfile)):
     quit("The database has now been initialised. You can now use the program to add URLs. Run\n\trsscli.pl -h\nfor help")
 
 # we use global variables for the SQLite database connection and cursos
-conn = sqlite3.connect(dbfile)
+conn = sqlite3.connect(dburl,uri=True)
 cur = conn.cursor()
 
 # defining the colours (or not, if blackwhite is set)
@@ -182,9 +185,10 @@ def ago(num):
 # helper script to remove HTML tags from a string
 def remove_html_tags(text):
     """Remove html tags from a string"""
-    import re
     clean = re.compile('<.*?>')
     return re.sub(clean, '', text)
+    clean = re.compile('<')
+    return  re.sub(clean, '&lt;', text)
 
 def findfeed(site):
     # a helper function that, given an HTTP URL, returns the URLs of the RSS feeds inside it
@@ -293,7 +297,7 @@ def listtags(limit):
 def updateurl(url,name,lastchecked,lastupdated):
     # we need to reintialize conn and cur, because we'll operate inside a thread!
     origurl = url
-    conn = sqlite3.connect(dbfile, timeout=15) # timeout added because the threads may block writing to database
+    conn = sqlite3.connect(dburl, uri=True, timeout=15) # timeout added because the threads may block writing to database
     cur = conn.cursor()
     now = int(time.time())
 #    newpid = os.fork()
@@ -765,7 +769,7 @@ if (args.renametag):
     new = args.renametag[1]
     renametags(old,new)
 
-if (args.recent):
+if (args.recent and not args.website):
     num = int(args.limit)
     if num == 0: num = 10
     displayrecent(num)
@@ -891,6 +895,8 @@ if (args.tempimport):
 if (args.website):
     if args.recentsaved:
         cur.execute('SELECT DISTINCT item.url,item.source,item.time,item.readtime,item.addtime,item.title,item.author,item.description FROM item,tag WHERE item.url = tag.url ORDER BY item.readtime DESC LIMIT %d' % ( int(args.limit) if args.limit else 10 ) )
+    elif args.recent:
+        cur.execute('SELECT item.url,item.source,item.time,item.readtime,item.addtime,item.title,item.author,item.description FROM item ORDER BY readtime DESC LIMIT %d' % int(args.limit) )
     elif args.find:
         cur.execute('SELECT DISTINCT item.url,item.source,item.time,item.readtime,item.addtime,item.title,item.author,item.description FROM item,tag WHERE item.url = tag.url AND tag.tag = "%s" ORDER BY item.readtime DESC LIMIT %d' % ( args.find[0], int(args.limit) if args.limit else 10 ) )
     else:
@@ -933,7 +939,10 @@ xmlhttp.onreadystatechange=function() {
         if match: title = match.group(1)
         author = line[6]
         if author: author += ', '
-        content = remove_html_tags(line[7])
+        content = re.sub('[\n\r]','',line[7])
+        content = re.sub(' +>','>',content)
+        content = re.sub('  +',' ',content)
+        content = remove_html_tags(content)
         contentsplit = content.split(' ')
         if len(contentsplit) > 100:
             content = ' '.join(contentsplit[:100]) + ' ...'
@@ -951,8 +960,8 @@ xmlhttp.onreadystatechange=function() {
 <p class="blog-post-meta">{author}{time.ctime(itemtime)}</p>
 <p>{content}</p>
 <a class="btn btn-secondary" href="{url}" target="_blank">Read &raquo;</a>
-<button class="btn btn-success" onclick="$.get('http://lapsed.ordinary/rss/rssweb.py?url={urllib.parse.quote(url)}&action=save');" type="button" data-toggle="collapse" data-target="#block{counter}" aria-expanded="true" aria-controls="block{counter}">Save &#10071;</button>
-<button class="btn btn-danger" onclick="$.get('http://lapsed.ordinary/rss/rssweb.py?url={urllib.parse.quote(url)}&action=markread');" type="button" data-toggle="collapse" data-target="#block{counter}" aria-expanded="true" aria-controls="block{counter}">Delete &#10060;</button>
+<button class="btn btn-success" onclick="$.get('/rss/rssweb.py?url={urllib.parse.quote(url)}&action=save');" type="button" data-toggle="collapse" data-target="#block{counter}" aria-expanded="true" aria-controls="block{counter}">Save &#10071;</button>
+<button class="btn btn-danger" onclick="$.get('/rss/rssweb.py?url={urllib.parse.quote(url)}&action=markread');" type="button" data-toggle="collapse" data-target="#block{counter}" aria-expanded="true" aria-controls="block{counter}">Delete &#10060;</button>
 <br/><br/>
 </div>
 
